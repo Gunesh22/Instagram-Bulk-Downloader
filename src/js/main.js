@@ -117,15 +117,26 @@ const appState = Object.freeze((() => {
                 </div>
                 <div class="bulk-container" style="position: absolute; top: 70px; left: 0; width: 100%; padding: 15px; background: #1a1a1a; z-index: 100; border-bottom: 1px solid #333; display: none; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
                     <div style="margin-bottom: 12px; display: flex; align-items: center; gap: 10px; color: white;">
-                        <label style="font-size: 14px; min-width: 90px; font-weight: 500;">Views: <span class="view-count-val" style="color: #0095f6;">0</span></label>
-                        <input type="range" class="view-count-slider" min="0" max="1000000" step="10000" value="0" style="flex: 1; cursor: pointer; height: 6px;">
+                        <label style="font-size: 14px; min-width: 90px; font-weight: 500;">Min Views:</label>
+                        <input type="number" class="view-count-input" min="0" value="0" style="flex: 1; padding: 8px; background: #262626; border: 1px solid #555; border-radius: 4px; color: white; font-size: 14px; max-width: 100px;">
+                        <select class="view-count-multiplier" style="padding: 8px; background: #262626; border: 1px solid #555; border-radius: 4px; color: white; font-size: 14px; cursor: pointer;">
+                            <option value="1">Hundred</option>
+                            <option value="1000">Thousand</option>
+                            <option value="1000000">Million</option>
+                        </select>
+                        <span class="view-count-display" style="color: #0095f6; font-weight: 600; min-width: 80px;">= 0 views</span>
+                    </div>
+                    <div style="margin-bottom: 12px; display: flex; align-items: center; gap: 10px; color: white;">
+                        <label style="font-size: 14px; min-width: 90px; font-weight: 500;">Max Posts:</label>
+                        <input type="number" class="max-posts-input" min="1" value="10" style="flex: 1; padding: 8px; background: #262626; border: 1px solid #555; border-radius: 4px; color: white; font-size: 14px; max-width: 100px;">
+                        <span style="color: #888; font-size: 12px; flex: 1;">Leave blank for all posts</span>
                     </div>
                     <div style="display: flex; gap: 10px;">
                          <button class="bulk-btn" style="flex: 1; padding: 10px; cursor: pointer; background: #0095f6; border: none; border-radius: 6px; color: white; font-weight: bold; font-size: 13px; text-transform: uppercase;">Start Collect</button>
                          <button class="bulk-dl-btn" style="flex: 1; padding: 10px; cursor: pointer; background: #262626; border: 1px solid #555; border-radius: 6px; color: white; display: none; font-weight: bold; font-size: 13px;">Download (<span class="bulk-count">0</span>)</button>
                     </div>
                 </div>
-                <div class="media-container" style="padding-top: 180px;">
+                <div class="media-container" style="padding-top: 200px;">
                     <p style="position: absolute;top: 50%;transform: translate(0%, -50%); width: 100%; text-align: center; color: #888;">
                         Media items will appear here
                     </p>
@@ -144,8 +155,10 @@ const appState = Object.freeze((() => {
         const SELECT_EVENT_KEYS = ['S', 's'];
 
         // Bulk Logic Variables
-        const VIEW_SLIDER = document.querySelector('.view-count-slider');
-        const VIEW_VAL = document.querySelector('.view-count-val');
+        const VIEW_INPUT = document.querySelector('.view-count-input');
+        const VIEW_MULTIPLIER = document.querySelector('.view-count-multiplier');
+        const VIEW_DISPLAY = document.querySelector('.view-count-display');
+        const MAX_POSTS_INPUT = document.querySelector('.max-posts-input');
         const BULK_BTN = document.querySelector('.bulk-btn');
         const BULK_DL_BTN = document.querySelector('.bulk-dl-btn');
         const BULK_CONTAINER = document.querySelector('.bulk-container');
@@ -156,6 +169,24 @@ const appState = Object.freeze((() => {
         let collectedMedia = [];
         let collectedIds = new Set();
         let autoScrollInterval = null;
+
+        function updateMinViews() {
+            const inputVal = parseInt(VIEW_INPUT.value) || 0;
+            const multiplier = parseInt(VIEW_MULTIPLIER.value) || 1;
+            minViews = inputVal * multiplier;
+
+            // Format display
+            if (minViews >= 1000000) {
+                VIEW_DISPLAY.textContent = `= ${(minViews / 1000000).toFixed(1)}M views`;
+            } else if (minViews >= 1000) {
+                VIEW_DISPLAY.textContent = `= ${(minViews / 1000).toFixed(1)}K views`;
+            } else {
+                VIEW_DISPLAY.textContent = `= ${minViews} views`;
+            }
+        }
+
+        VIEW_INPUT.addEventListener('input', updateMinViews);
+        VIEW_MULTIPLIER.addEventListener('change', updateMinViews);
 
         function checkBulkVisibility() {
             if (!BULK_CONTAINER) return;
@@ -172,11 +203,6 @@ const appState = Object.freeze((() => {
             }
         }
 
-        VIEW_SLIDER.addEventListener('input', (e) => {
-            const val = parseInt(e.target.value);
-            minViews = val;
-            VIEW_VAL.textContent = val >= 1000000 ? '1M+' : (val >= 1000 ? (val / 1000) + 'k' : val);
-        });
 
         BULK_BTN.addEventListener('click', async () => {
             isCollecting = !isCollecting;
@@ -212,8 +238,12 @@ const appState = Object.freeze((() => {
                 await new Promise(resolve => setTimeout(resolve, 1000));
 
                 // Step 2: Find all reel links
-                const reelLinks = Array.from(document.querySelectorAll('a[href*="/reel/"]'))
+                let reelLinks = Array.from(document.querySelectorAll('a[href*="/reel/"]'))
                     .filter(link => link.href.match(/\/reel\/[A-Za-z0-9_-]+/));
+
+                // Apply max posts limit
+                const maxPosts = parseInt(MAX_POSTS_INPUT.value) || reelLinks.length;
+                reelLinks = reelLinks.slice(0, maxPosts);
 
                 BULK_BTN.textContent = `Found ${reelLinks.length} reels. Processing...`;
 
