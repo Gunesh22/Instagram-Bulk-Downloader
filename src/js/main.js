@@ -168,7 +168,34 @@ const appState = Object.freeze((() => {
         let isCollecting = false;
         let collectedMedia = [];
         let collectedIds = new Set();
-        let autoScrollInterval = null;
+        let collectedShortcodes = new Set();
+        let currentReelResolver = null;
+        let dirHandle = null;
+
+        // --- Folder Selection UI ---
+        const FOLDER_BTN = document.createElement('button');
+        FOLDER_BTN.textContent = 'Select Download Folder';
+        FOLDER_BTN.style.cssText = 'padding: 8px; background: #262626; border: 1px solid #555; border-radius: 4px; color: white; font-size: 14px; width: 100%; margin-bottom: 5px; cursor: pointer;';
+
+        const FOLDER_STATUS = document.createElement('div');
+        FOLDER_STATUS.textContent = 'No folder selected';
+        FOLDER_STATUS.style.cssText = 'color: #888; font-size: 11px; margin-bottom: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
+
+        if (BULK_CONTAINER) {
+            BULK_CONTAINER.insertBefore(FOLDER_BTN, BULK_CONTAINER.children[2]);
+            BULK_CONTAINER.insertBefore(FOLDER_STATUS, BULK_CONTAINER.children[3]);
+        }
+
+        FOLDER_BTN.addEventListener('click', async () => {
+            try {
+                dirHandle = await window.showDirectoryPicker();
+                FOLDER_STATUS.textContent = `Selected: ${dirHandle.name}`;
+                FOLDER_STATUS.style.color = '#0095f6';
+            } catch (err) {
+                console.error(err);
+                FOLDER_STATUS.textContent = 'Selection cancelled';
+            }
+        });
 
         function updateMinViews() {
             const inputVal = parseInt(VIEW_INPUT.value) || 0;
@@ -203,129 +230,162 @@ const appState = Object.freeze((() => {
             }
         }
 
-
+        // --- Core Bulk Collection Logic (Process-As-You-Go) ---
         BULK_BTN.addEventListener('click', async () => {
             isCollecting = !isCollecting;
             if (isCollecting) {
-                BULK_BTN.textContent = 'Loading...';
+                if (!dirHandle && !confirm("No folder selected. Files will be downloaded to your default Downloads folder and might prompt for each file. Continue?")) {
+                    isCollecting = false;
+                    return;
+                }
+
+                BULK_BTN.textContent = 'Starting...';
                 BULK_BTN.style.background = '#ed4956';
                 BULK_DL_BTN.style.display = 'none';
                 collectedMedia = [];
                 collectedIds.clear();
+                collectedShortcodes.clear();
                 let captionsText = '';
 
-                // Step 1: Scroll to load all reels
-                BULK_BTN.textContent = 'Scrolling to load all reels...';
-                let lastHeight = 0;
-                let scrollAttempts = 0;
-                const maxScrollAttempts = 50; // Prevent infinite loop
+                let lastScrollHeight = 0;
+                let noNewContentCount = 0;
+                let totalProcessed = 0;
+                const maxPosts = parseInt(MAX_POSTS_INPUT.value) || 10000;
 
-                while (scrollAttempts < maxScrollAttempts && isCollecting) {
-                    window.scrollTo(0, document.body.scrollHeight);
-                    await new Promise(resolve => setTimeout(resolve, 2000));
+                while (isCollecting) {
+                    // 1. Find all visible reel links
+                    const visibleLinks = Array.from(document.querySelectorAll('a[href*="/reel/"]'))
+                        .filter(link => link.href.match(/\/reel\/[A-Za-z0-9_-]+/));
 
-                    const currentHeight = document.body.scrollHeight;
-                    if (currentHeight === lastHeight) {
-                        break; // Reached bottom
+                    for (const link of visibleLinks) {
+                        if (!isCollecting) break;
+                        if (totalProcessed >= maxPosts) {
+                            isCollecting = false;
+                            break;
+                        }
+
+                        const href = link.href;
+                        const shortcodeMatch = href.match(/\/reel\/([A-Za-z0-9_-]+)/);
+                        const shortcode = shortcodeMatch ? shortcodeMatch[1] : null;
+
+                        if (shortcode && !collectedShortcodes.has(shortcode)) {
+                            try {
+                                link.click(); // Open modal
+
+                                // Smart Wait
+                                const waitPromise = new Promise(resolve => { currentReelResolver = resolve; });
+                                const timeoutPromise = new Promise(resolve => setTimeout(() => resolve('timeout'), 4000));
+                                await Promise.race([waitPromise, timeoutPromise]);
+
+                                // Close modal
+                                document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true }));
+                                await new Promise(resolve => setTimeout(resolve, 800)); // Animation wait
+
+                                collectedShortcodes.add(shortcode);
+                                totalProcessed++;
+                                BULK_BTN.textContent = `Collected: ${collectedMedia.length} | Scanning...`;
+
+                            } catch (e) {
+                                console.error('Error processing item', e);
+                            }
+                        }
                     }
-                    lastHeight = currentHeight;
-                    scrollAttempts++;
-                    BULK_BTN.textContent = `Loading reels... (scroll ${scrollAttempts})`;
+
+                    if (!isCollecting || totalProcessed >= maxPosts) break;
+
+                    // 2. Scroll Down
+                    window.scrollBy(0, window.innerHeight * 0.8);
+                    await new Promise(resolve => setTimeout(resolve, 2500));
+
+                    // 3. Check for end of page
+                    const currentScrollHeight = document.body.scrollHeight;
+                    if (currentScrollHeight === lastScrollHeight) {
+                        noNewContentCount++;
+                        if (noNewContentCount > 3) {
+                            console.log('Reached end of page');
+                            break;
+                        }
+                    } else {
+                        noNewContentCount = 0;
+                        lastScrollHeight = currentScrollHeight;
+                    }
                 }
 
-                // Scroll back to top
-                window.scrollTo(0, 0);
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                // Step 4: Download
+                if (collectedMedia.length > 0) {
+                    BULK_BTN.textContent = `Saving ${collectedMedia.length} files...`;
 
-                // Step 2: Find all reel links
-                let reelLinks = Array.from(document.querySelectorAll('a[href*="/reel/"]'))
-                    .filter(link => link.href.match(/\/reel\/[A-Za-z0-9_-]+/));
-
-                // Apply max posts limit
-                const maxPosts = parseInt(MAX_POSTS_INPUT.value) || reelLinks.length;
-                reelLinks = reelLinks.slice(0, maxPosts);
-
-                BULK_BTN.textContent = `Found ${reelLinks.length} reels. Processing...`;
-
-                // Step 3: Process each reel
-                for (let i = 0; i < reelLinks.length && isCollecting; i++) {
-                    try {
-                        // Click to open
-                        reelLinks[i].click();
-
-                        // Wait for data
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-
-                        // Close modal
-                        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true }));
-
-                        await new Promise(resolve => setTimeout(resolve, 800));
-
-                        BULK_BTN.textContent = `${i + 1}/${reelLinks.length} | Collected: ${collectedMedia.length}`;
-                    } catch (err) {
-                        console.error('Error:', err);
-                    }
-                }
-
-                // Step 4: Auto-download and create captions file
-                if (isCollecting && collectedMedia.length > 0) {
-                    // Build captions text
                     collectedMedia.forEach((item, index) => {
-                        captionsText += `[${index + 1}] ${item.username || 'Unknown'} - ${item.stats?.views || 0} views\n`;
-                        captionsText += `${item.caption || 'No caption'}\n`;
+                        captionsText += `[${index + 1}] ${item.username} - ${item.stats?.views || 0} views\n`;
+                        captionsText += `${item.caption || ''}\n`;
                         captionsText += `${'='.repeat(80)}\n\n`;
                     });
 
-                    // Download captions file
-                    const captionsBlob = new Blob([captionsText], { type: 'text/plain' });
-                    const captionsUrl = URL.createObjectURL(captionsBlob);
-                    const captionsLink = document.createElement('a');
-                    captionsLink.href = captionsUrl;
-                    captionsLink.download = `captions_${Date.now()}.txt`;
-                    captionsLink.click();
-                    URL.revokeObjectURL(captionsUrl);
-
-                    // Auto-download videos
-                    BULK_BTN.textContent = `Downloading ${collectedMedia.length} reels...`;
-
-                    for (let i = 0; i < collectedMedia.length; i++) {
-                        const item = collectedMedia[i];
-                        try {
-                            const response = await fetch(item.url);
-                            const blob = await response.blob();
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = `${item.username}_${item.id}_${item.stats?.views || 0}views.mp4`;
-                            a.click();
-                            URL.revokeObjectURL(url);
-
-                            BULK_BTN.textContent = `Downloaded ${i + 1}/${collectedMedia.length}`;
-                            await new Promise(resolve => setTimeout(resolve, 500));
-                        } catch (err) {
-                            console.error('Download error:', err);
+                    try {
+                        // Save Captions
+                        if (dirHandle) {
+                            const capHandle = await dirHandle.getFileHandle(`captions_${Date.now()}.txt`, { create: true });
+                            const writable = await capHandle.createWritable();
+                            await writable.write(captionsText);
+                            await writable.close();
+                        } else {
+                            const blob = new Blob([captionsText], { type: 'text/plain' });
+                            saveFile(blob, `captions_${Date.now()}.txt`);
                         }
+
+                        // Save Videos
+                        for (let i = 0; i < collectedMedia.length; i++) {
+                            const item = collectedMedia[i];
+                            BULK_BTN.textContent = `Saving ${i + 1}/${collectedMedia.length}...`;
+
+                            try {
+                                const response = await fetch(item.url);
+                                const blob = await response.blob();
+
+                                // Format views
+                                let views = item.stats?.views || 0;
+                                let viewsString = views.toString();
+                                if (views >= 1000000) {
+                                    viewsString = (views / 1000000).toFixed(1) + 'M';
+                                } else if (views >= 1000) {
+                                    viewsString = (views / 1000).toFixed(1) + 'K';
+                                }
+
+                                const filename = `${viewsString}_${item.username}_${item.id}.mp4`;
+
+                                if (dirHandle) {
+                                    const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
+                                    const writable = await fileHandle.createWritable();
+                                    await writable.write(blob);
+                                    await writable.close();
+                                } else {
+                                    saveFile(blob, filename);
+                                    await new Promise(r => setTimeout(r, 500));
+                                }
+                            } catch (e) {
+                                console.error('Save error', e);
+                            }
+                        }
+                    } catch (err) {
+                        console.error('File System Error', err);
+                        alert('Error saving files: ' + err.message);
                     }
                 }
 
-                // Done
                 isCollecting = false;
                 BULK_BTN.textContent = 'Start Collect';
                 BULK_BTN.style.background = '#0095f6';
                 BULK_DL_BTN.style.display = 'block';
                 BULK_COUNT.textContent = collectedMedia.length;
+
             } else {
-                BULK_BTN.textContent = 'Start Collect';
-                BULK_BTN.style.background = '#0095f6';
-                BULK_DL_BTN.style.display = 'block';
-                BULK_COUNT.textContent = collectedMedia.length;
+                isCollecting = false;
+                BULK_BTN.textContent = 'Stopping...';
             }
         });
 
         BULK_DL_BTN.addEventListener('click', () => {
             if (collectedMedia.length === 0) return;
-            // Render collected media
-            // Create a fake data object wrapper
             const wrapper = {
                 date: Date.now() / 1000,
                 user: { username: collectedMedia[0].username || 'bulk_collection' },
@@ -333,7 +393,6 @@ const appState = Object.freeze((() => {
             };
             renderMedia(wrapper);
 
-            // Select All
             TITLE_CONTAINER.classList.add('multi-select');
             DISPLAY_CONTAINER.querySelectorAll('.overlay').forEach(el => el.classList.add('checked'));
             setSelectedMedia();
@@ -342,16 +401,19 @@ const appState = Object.freeze((() => {
         window.addEventListener('message', e => {
             if (e.data && e.data.type === 'IG_DOWNLOADER_EVENT' && e.data.event === 'postLoad') {
                 const data = e.data.detail.data;
+                const shortcode = e.data.detail.shortcode;
                 const views = data.stats.views || 0;
                 if (isCollecting) {
+                    if (currentReelResolver) currentReelResolver('loaded');
+
                     if (views >= minViews) {
                         data.media.forEach(m => {
                             if (!collectedIds.has(m.id)) {
                                 collectedIds.add(m.id);
-                                // Attach metadata
+                                if (shortcode) collectedShortcodes.add(shortcode);
                                 m.caption = data.caption;
                                 m.stats = data.stats;
-                                m.username = data.user.username; // keep username
+                                m.username = data.user.username;
                                 collectedMedia.push(m);
                             }
                         });
@@ -360,11 +422,6 @@ const appState = Object.freeze((() => {
                 }
             }
         });
-
-        // Show Bulk UI only on Profiles (approx check) or always allow?
-        // Let's allow always, but logically works best on feed/profile.
-        // We can check if it's a profile page to verify validity? 
-        // For now, toggle visibility based on path could be added to pathChange listener.
 
         function setTheme() {
             const isDarkMode = localStorage.getItem('igt') === null ?
