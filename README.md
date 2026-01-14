@@ -1,101 +1,101 @@
-# Instagram Bulk Downloader
+# Instagram Downloader & Bulk Reels Collector
 
-![icon](icons/icon128.png)
+## 🚀 How to Install (Add to Browser)
 
-## 🚀 New Features
+1.  **Download**: Click the "Code" button above and select "Download ZIP", or clone this repository. Extract the ZIP file to a folder on your computer.
+2.  **Open Extensions Page**:
+    *   **Chrome**: Type `chrome://extensions` in the address bar and press Enter.
+    *   **Edge**: Type `edge://extensions` in the address bar and press Enter.
+3.  **Enable Developer Mode**: Look for a toggle switch named "Developer mode" (usually in the top right corner) and turn it **ON**.
+4.  **Load Extension**:
+    *   Click the **"Load unpacked"** button (top left).
+    *   Select the folder where you extracted the files (make sure it's the folder containing `manifest.json`).
+5.  **Done!**: The extension icon should appear in your browser toolbar. Pin it for easy access!
 
-This enhanced version includes **powerful bulk downloading capabilities** for Instagram profiles:
+---
 
-* **Bulk Download** - Automatically download multiple reels from any profile
-* **View Count Filter** - Download only viral content (set minimum views: 100K, 1M, etc.)
-* **Max Posts Limit** - Process only the first N posts (e.g., top 10 most recent)
-* **Auto-Download** - Reels are downloaded automatically when they meet your criteria
-* **Captions Export** - Get a text file with all captions in serial order
-* **Smart Filtering** - Precise control with number input + multiplier dropdown
+## New Features
+This enhanced version includes powerful bulk downloading capabilities for Instagram profiles:
 
-## How this works
-
-With regex and some `ReactFiber` magic, combined with network request interception, this extension can detect which posts you want to download and fetch the API data automatically. The bulk download feature intercepts Instagram's internal API calls to extract media URLs, view counts, and captions.
-
-## Browser compatibility
-
-This extension should work fine on the following browsers with `fetch()` API and Chromium base browser, tested Browser:
-
-* Google Chrome
-* MS Edge
-* Firefox
-
-## Download and install
-
-* Download [latest version](https://github.com/Gunesh22/Instagram-Bulk-Downloader/releases) and extract to a folder
-* Enable Chrome extensions developer mode
-* Drag and drop extracted folder to `chrome://extensions/`
+*   **Bulk Download**: Automatically download multiple reels from any profile.
+*   **Folder Selection**: Choose exactly where you want to save files (no more "Save As" popups!).
+*   **View Count Filter**: Download only viral content (set minimum views: 100K, 1M, etc.).
+*   **Max Posts Limit**: Process only the first N posts (e.g., top 10 most recent).
+*   **Auto-Download**: Reels are downloaded automatically when they meet your criteria.
+*   **Captions Export**: Get a text file (`captions.txt`) with all captions in serial order.
+*   **Smart Filtering**: Precise control with number input + multiplier dropdown.
 
 ## Usage
 
 ### Single Downloads
-* Go to any `post`, `reels`, `stories`, etc. Then click `Download` button to fetch data.
-* Click on any photos/videos to save.
-* Toggle multi select by clicking on `Media` and select photos by clicking on them (or select all by click and hold on `Media`). Then click on `Download` to save zip file.
+1.  Go to any post, reel, or story.
+2.  Click the Download button to fetch data.
+3.  Click on any photo/video to save it.
+4.  **Multi-select**: Click "Media" title to toggle select mode, then click items to select multiple. Click "Download" to save as ZIP.
 
 ### Bulk Downloads (NEW!)
-1. **Navigate to a profile** - Go to any Instagram profile (e.g., `@username`)
-2. **Click the "Reels" tab** - View the grid of reels
-3. **Click the Download button** - Opens the extension popup
-4. **Configure filters:**
-   - **Min Views:** Enter a number (e.g., `2`) and select multiplier (`Million`, `Thousand`, `Hundred`)
-     - Example: `2` + `Million` = Only download reels with 2M+ views
-   - **Max Posts:** Enter how many reels to check (e.g., `10` for first 10 reels)
-     - Leave blank to process all reels on the profile
-5. **Click "Start Collect"** - The extension will:
-   - Scroll through the profile to load reels
-   - Click each reel to extract data
-   - Filter by view count
-   - Auto-download qualifying reels
-   - Create a `captions.txt` file with all captions
-6. **Wait for completion** - Progress is shown on the button
-7. **Check your Downloads folder** - All reels and captions are saved!
-
-**File naming:** `username_id_viewcount.mp4` (e.g., `elitethink_123456_2500000views.mp4`)
-
-## Features
-
-* Download posts ✔
-* Download reels ✔
-* Download latest stories ✔
-* Download highlight stories ✔
-* **Bulk download from profiles** ✔ **NEW!**
-* **Filter by view count** ✔ **NEW!**
-* **Limit max posts to process** ✔ **NEW!**
-* **Auto-download with captions** ✔ **NEW!**
-* Support high resolution ✔
-* Support download zip file ✔
+1.  **Navigate to a profile**: Go to any Instagram profile (e.g., `@username`).
+2.  **Click the "Reels" tab**: Ensure you are viewing the reels grid.
+3.  **Open Extension**: Click the Download button/Overlay.
+4.  **Select Folder**: Click the **"Select Download Folder"** button.
+    *   *Important*: You must select a folder to bypass browser download prompts.
+5.  **Configure filters**:
+    *   **Min Views**: Enter a number (e.g., `2`) and select multiplier (Million, Thousand, Hundred).
+        *   *Example*: `2` + `Million` = Only download reels with 2M+ views.
+    *   **Max Posts**: Enter how many reels to check (e.g., `10` for first 10 reels). Leave blank to process all.
+6.  **Click "Start Collect"**:
+    *   The extension will scroll through the profile, open reels, and process them.
+    *   Videos meeting your criteria are saved automatically to your selected folder.
+7.  **File Naming**: Files are named by popularity for easy sorting: `[Views]_[Username]_[ID].mp4`
+    *   *Example*: `2.5M_elitethink_123456.mp4`
 
 ## Bulk Download UI
-
 The bulk download panel appears when you're on a profile page:
 
-```
+```text
 ┌─────────────────────────────────────────┐
-│ Min Views: [2] [Million ▼] = 2.0M views│
-│ Max Posts: [10] Leave blank for all    │
-│ [START COLLECT] [DOWNLOAD (0)]         │
+│ [Select Download Folder]                │
+│ Selected: D:\My Instgram Downloads      │
+├─────────────────────────────────────────┤
+│ Min Views: [2] [Million ▼] = 2.0M views │
+│ Max Posts: [10] Leave blank for all     │
+│ [START COLLECT] [DOWNLOAD (0)]          │
 └─────────────────────────────────────────┘
 ```
 
-**Controls:**
-- **Min Views Input:** Enter a number
-- **Multiplier Dropdown:** Select Hundred (×100), Thousand (×1,000), or Million (×1,000,000)
-- **Max Posts Input:** Limit how many reels to check (blank = all)
-- **Start Collect Button:** Begin the bulk download process
-- **Download Button:** Shows count of collected reels
+## Features List
+*   Download posts ✔
+*   Download reels ✔
+*   Download latest stories ✔
+*   Download highlight stories ✔
+*   **Bulk download from profiles** ✔ NEW!
+*   **Folder Selection (FileSystem API)** ✔ NEW!
+*   **Filter by view count** ✔ NEW!
+*   **Smart File Naming (Sort by Views)** ✔ NEW!
+*   **Limit max posts to process** ✔ NEW!
+*   **Auto-download with captions** ✔ NEW!
+*   Support high resolution ✔
+*   Support download zip file ✔
+
+## How this works
+With regex and some ReactFiber magic, combined with network request interception, this extension can detect which posts you want to download and fetch the API data automatically. The bulk download feature intercepts Instagram's internal API calls to extract media URLs, view counts, and captions.
+
+## Browser compatibility
+This extension should work fine on the following browsers with `fetch()` API and Chromium base:
+*   Google Chrome
+*   MS Edge
+*   Brave
+*   Opera
+
+## Technical Details
+*   **Network Interception**: Intercepts XMLHttpRequest calls to Instagram's GraphQL API.
+*   **Virtualization Handling**: Uses a "Process-As-You-Go" strategy to handle Instagram's infinite scroll and DOM removal.
+*   **File System Access API**: Uses `window.showDirectoryPicker()` to save files directly to disk without user interaction per file.
 
 ## Customize
-
 You can modify anything you want except some constants start with "IG_" that definitely gonna break this extension.
 
-Edit Hide / Show Transition effects
-
+Edit Hide / Show Transition effects in `src/style/style.css`:
 ```css
 .display-container.hide {
     transform-origin: 85% bottom;
@@ -105,40 +105,20 @@ Edit Hide / Show Transition effects
 }
 ```
 
-## Keyboard shortcut
+## Keyboard shortcuts
+*   **Download**: `D`
+*   **Close**: `Esc`, `C`
+*   **Select all**: `S` (in multi-select mode)
 
-Some keyboard shortcuts will not work if you use an external application for typing.
-
-* Download: `D`
-* Close: `esc` `C` `c`
-* Select all `S` `s`
-* Keyboard shortcut should work if you don't focus on special HTML Elements like `input` `textarea` or any element with `textbox` role (ex: comment, search, ...)
-
-## Technical Details
-
-**Network Interception:**
-- Intercepts `XMLHttpRequest` calls to Instagram's GraphQL API
-- Captures data from `PolarisProfileReelsTabQuery`, `PolarisProfilePostsQuery`, and other endpoints
-- Extracts media URLs, view counts, captions, and thumbnails
-
-**Supported API Endpoints:**
-- `/graphql/query` - GraphQL queries
-- `/api/v1/` - REST API calls
-- Handles both classic and new Instagram API structures
+*Note: Shortcuts may not work if focus is on an input field.*
 
 ## Notes
-
-* If you save extension on external partition or drive and your Linux Distro doesn't mount automatically, extension will disappear. You have to mount that partition/drive and restart browser.
-* Bulk download works best on profile pages with the "Reels" tab visible
-* Large profiles may take several minutes to process completely
-* Instagram may rate-limit if you download too many reels too quickly
+*   **Rate Limits**: Instagram may rate-limit you if you download hundreds of reels very quickly. The extension has built-in delays to be safe, but use with caution.
+*   **Large Profiles**: Processing a profile with thousands of posts may take time.
 
 ## Credits
-
-Original extension by [HOAIAN2](https://github.com/HOAIAN2/Instagram-Downloader)
-
-Enhanced with bulk download features by [Gunesh22](https://github.com/Gunesh22)
+*   Original extension by [HOAIAN2](https://github.com/HOAIAN2)
+*   Enhanced with bulk download features by **Gunesh22**
 
 ## License
-
 This project maintains the same license as the original Instagram-Downloader project.
